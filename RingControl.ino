@@ -1,74 +1,76 @@
-// This #include statement was automatically added by the Particle IDE.
+
+SYSTEM_THREAD(ENABLED);//program doesnt lag for loss internet
+
+// Add libraries
 #include <neopixel.h>
+#include <ThingSpeak.h>
 #include <tuple>//functions with multiple outputs
 
-// IMPORTANT: Set pixel COUNT, PIN and TYPE
+// Set pixel COUNT, PIN and TYPE
 #define PIXEL_COUNT 24
 #define PIXEL_PIN D6
 #define PIXEL_TYPE WS2812
 
-//Color definitions
-#define PEACH 200,50,5
-#define CYAN 10,150,70
-#define PURPLE 180,3,180
-#define BLUE 5,5,190
-#define WHITE 150,150,150
-#define GREEN 10,180,10
-#define YELLOW 255,255,0
-#define BLACK 0,0,0
-#define RED 255,0,0
 
-//Color sets
-#define TYPE R1,G1,B1
-//#define TEMP R2,G2,B2
 
 //enable ring
 Adafruit_NeoPixel strip = Adafruit_NeoPixel(PIXEL_COUNT, PIXEL_PIN, PIXEL_TYPE);
 
-//Define Global Variables
-int currentTemp = NULL; //Current temprature F
-int windSpeed = NULL;//Winf speed MPH
-String weatherState = "";
-//char forcast="";
 
-long previousMillisWU = 0;//initiation of coumter for weather data pull
-long interval = 60000; //Interval for pulling weather data from WU milliseconds
+///////establish connection with ThingSpeak////////////////////////////////////////////////////////
+TCPClient client;
+unsigned int myChannelNumber = 362634; //ChannelID
+const char * myWriteAPIKey = "4TNTXBSVVNRKBPXZ"; // APIKey
+
+
+
+
+//time intervals for delayed functions//////////////////////////////////////////////////////////////////////////////
+long intervalWUPull = 60000; //Interval for pulling weather data from WU milliseconds
+long intervalDataPost = 60000; //Interval for pulling weather data from WU milliseconds
 
 //initilize functions
-std::tuple<int, int,int > GetCondition(String current);
-//std::tuple<int, int,int > GetTemprature(int temp);
+//uint32_t GetCondition(String current);
+//uint32_t GetTemprature(int temp);
 
+////////////Color definitions///////////////////////////////////////////////////////////////////////////////////////
+uint32_t PURPLE=strip.Color(180,3,180);
+uint32_t PEACH=strip.Color(200,50,5);
+uint32_t CYAN=strip.Color(10,150,70);
+uint32_t BLUE=strip.Color(5,5,190);
+uint32_t WHITE=strip.Color(150,150,150);
+uint32_t GREEN=strip.Color(10,180,10);
+uint32_t YELLOW=strip.Color(255,255,0);
+uint32_t BLACK=strip.Color(0,0,0);
+uint32_t RED=strip.Color(255,0,0);
+
+//Define Global Variables/////////////////////////////////////////////////////////////////////////////////////////
+int currentTemp = NULL; //Current temprature F
+int windSpeed = NULL;//Winf speed MPH
+String humidity ="";
+String weatherState = "";
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void setup() {
-    //Testing Conditions
-        //forcast='r';//sunny,clear, rainy, etc.
-        //currentTemp=100;//temprature F
-        //wSpeed=200;//windspeed delay
     
-  strip.begin();
-  strip.show();
-  strip.setBrightness(100);
+    //initiate LED control
+    strip.begin();
+    strip.show();
+    strip.setBrightness(100);//set brightness limit of LEDs
   
-  // Subscribe to the integration response event
-  Particle.subscribe(System.deviceID() + "_test1", WuHandler, MY_DEVICES);
+    // Subscribe to the integration response event
+    Particle.subscribe(System.deviceID() + "_test1", WuHandler, MY_DEVICES);
+    //start ThinkSpeak client
+    ThingSpeak.begin(client);
 }
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 void loop() {
    
-   int TYPE,TEMP,wSpeed;
-  
+   
     WUretreve();//retreve WU data
+    PostData(currentTemp,windSpeed);//Post data to ThingSpeak
+    Cycle(GetCondition(weatherState),GetTemprature(currentTemp),WindSpeed(windSpeed));//run animation
     
-   // WindSpeed(windSpeed);//convert wind speed to delay interverl
-    std::tie(TYPE)=GetCondition(weatherState);  //retreve condition color
-    //std::tie(TEMP)=GetTemprature(currentTemp); //retreve temprature color
-    //uint32_t Temp=GetTemprature(currentTemp);
-    //wSpeed=400;
-    Cycle(TYPE,GetTemprature(currentTemp),WindSpeed(windSpeed));//run animation
-    
-    
-
    
 }
 
@@ -76,8 +78,9 @@ void loop() {
 //call to wunderground and initiate WuHandler//////////////////////////////////////////////////////////////
 void WUretreve(){
     unsigned long currentMillis = millis();
+    static long previousMillisWU = 0;//initiation of coumter for weather data pull
     
-    if(currentMillis - previousMillisWU > interval){
+    if(currentMillis - previousMillisWU > intervalWUPull){
     // Get some data
     String data = String(10);
     // Trigger the integration
@@ -98,16 +101,16 @@ void WuHandler(const char *event, const char *data) {
     weatherState = strtok(strBuffer, "\"~");
     //float currentTemp = atof(strtok(NULL, "~"));
     currentTemp = atoi(strtok(NULL, "~"));//retreve temp F
-    //String humidity = strtok(NULL, "~");
-    //String windDir = strtok(NULL, "~");
+    humidity = strtok(NULL, "~");
+    String windDir = strtok(NULL, "~");
     windSpeed = atoi(strtok(NULL, "~")); //convert from string float to integer to eliminate fractional wind speed MPH
-    //String dewPoint = strtok(NULL, "~");
+    String dewPoint = strtok(NULL, "~");
     
     
 }
 
 //recieve current condition from WU and return a color for tracking LED////////////////////////////////////////////////////
-std::tuple<int, int,int > GetCondition(String current){
+uint32_t GetCondition(String current){
     
     const int x=6;
     const int y=50;
@@ -130,25 +133,25 @@ std::tuple<int, int,int > GetCondition(String current){
             if(current==conditions[i][j]){              
                 done=true;
                 if(conditions[i][0]=="RAIN"){
-                    return std::make_tuple(CYAN);
+                    return CYAN;
                     
                 }else if(conditions[i][0]=="CLEAR"){
-                    return std::make_tuple(YELLOW);
+                    return YELLOW;
                     
                 }else if(conditions[i][0]=="SNOW"){
-                    return std::make_tuple(WHITE);
+                    return WHITE;
                     
                 }else if(conditions[i][0]=="CLOUDY"){
-                    return std::make_tuple(BLACK);
+                    return BLACK;
                     
                 }else if(conditions[i][0]=="BAD"){
-                    return std::make_tuple(PEACH);
+                    return PEACH;
                     
                 }else if(conditions[i][0]=="??"){
-                    return std::make_tuple(PEACH);
+                    return PEACH;
                     
                 }else{
-                    return std::make_tuple(RED);
+                    return RED;
                 }
                 
             }
@@ -161,6 +164,7 @@ std::tuple<int, int,int > GetCondition(String current){
 //recieve current temprature from WU and return base LED color//////////////////////////////////////////////////////////////////
 uint32_t GetTemprature(int temp){
     
+    //aray of colorsr from blur to green to red for temprature display
     uint32_t spectrum[50]={strip.Color(0,3,229),strip.Color(0,22,228),strip.Color(0,40,227),strip.Color(0,59,226),strip.Color(0,77,225),strip.Color(0,95,225),strip.Color(0,113,224),strip.Color(0,131,223),strip.Color(0,148,222),strip.Color(0,166,222),strip.Color(0,183,221),strip.Color(0,200,220),strip.Color(0,218,219),strip.Color(0,218,202),strip.Color(0,218,184),strip.Color(0,217,165),strip.Color(0,216,147),strip.Color(0,215,129),strip.Color(0,215,111),strip.Color(0,214,93),strip.Color(0,213,76),strip.Color(0,212,58),strip.Color(0,211,41),strip.Color(0,211,23),strip.Color(0,210,6),strip.Color(10,209,0),strip.Color(27,208,0),strip.Color(44,208,0),strip.Color(60,207,0),strip.Color(77,205,0),strip.Color(93,205,0),strip.Color(110,204,0),strip.Color(126,204,0),strip.Color(142,203,0),strip.Color(158,202,0),strip.Color(174,201,0),strip.Color(189,201,0),strip.Color(200,195,0),strip.Color(199,178,0),strip.Color(198,161,0),strip.Color(197,144,0),strip.Color(197,128,0),strip.Color(196,111,0),strip.Color(195,95,0),strip.Color(194,78,0),strip.Color(194,63,0),strip.Color(193,47,0),strip.Color(192,31,0),strip.Color(191,15,0),strip.Color(191,0,0)};
     temp=temp/2;
     
@@ -168,29 +172,16 @@ uint32_t GetTemprature(int temp){
         if (temp==i){
             
             return spectrum[i];
+        }else if(temp>50) {
+            return PURPLE;
         }
     }
-    
-    /*
-    if(currentTemp<55){//temprature less than 55F
-        return std::make_tuple(BLUE);
-    }
-    else if(currentTemp>77){//temprature greater than 77F
-        return std::make_tuple(PEACH);
-    }
-    else{//temprature between 55F and 77F
-        return std::make_tuple(GREEN);
-    }
-    
-    
-    
-    end goal put 100 colors in a gradiant and loop through until temprature == i and display color */
 }
 
 //light animation function/////////////////////////////////////////////////////////////////////////////////////////////////////////
-void Cycle(int R1, int G1, int B1, uint32_t colorTemp,int wSpeed){
+void Cycle(uint32_t conditionTemp, uint32_t colorTemp,int wSpeed){
     for(int i=0; i < PIXEL_COUNT; i++) {
-        strip.setPixelColor(i, R1, G1, B1);
+        strip.setPixelColor(i, conditionTemp);
         strip.show();
         delay(wSpeed);
         strip.setPixelColor(i, colorTemp);
@@ -206,37 +197,37 @@ int WindSpeed(int windSpeed){
     if(windSpeed<1){
         wSpeed=400;
     }
-    if(windSpeed<5){
+    else if(windSpeed<5){
         wSpeed=380;
     }
-    if(windSpeed<8){
+    else if(windSpeed<8){
         wSpeed=350;
     }
-    if(windSpeed<12){
+    else if(windSpeed<12){
         wSpeed=320;
     }
-    if(windSpeed<19){
+    else if(windSpeed<19){
         wSpeed=290;
     }
-    if(windSpeed<25){
+    else if(windSpeed<25){
         wSpeed=260;
     }
-    if(windSpeed<32){
+    else if(windSpeed<32){
         wSpeed=230;
     }
-    if(windSpeed<39){
+    else if(windSpeed<39){
         wSpeed=200;
     }
-    if(windSpeed<47){
+    else if(windSpeed<47){
         wSpeed=170;
     }
-    if(windSpeed<55){
+    else if(windSpeed<55){
         wSpeed=140;
     }
-    if(windSpeed<64){
+    else if(windSpeed<64){
         wSpeed=110;
     }
-    if(windSpeed<74){
+    else if(windSpeed<74){
         wSpeed=80;
     }
     else{
@@ -244,3 +235,17 @@ int WindSpeed(int windSpeed){
     }
     
 return wSpeed;}
+
+////Posts data to ThingSpeak/////////////////////////////////////////////////////////////
+void PostData(int temp,int wSpeed){
+    unsigned long currentMillis = millis();
+    static long previousMillisWU = 0;//initiation of coumter for data post interval 
+    if(currentMillis - previousMillisWU > intervalDataPost){
+        //Particle.publish("tempraturePost", String(temp), PRIVATE);
+        ThingSpeak.setField(1,temp);
+        ThingSpeak.setField(2,wSpeed);
+        //ThingSpeak.setField(3,humidity);
+        ThingSpeak.writeFields(myChannelNumber, myWriteAPIKey);
+        previousMillisWU = currentMillis;
+    }
+}

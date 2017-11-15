@@ -1,0 +1,48 @@
+// This #include statement was automatically added by the Particle IDE.
+#include <ThingSpeak.h>
+
+// This #include statement was automatically added by the Particle IDE.
+#include <Adafruit_DHT.h>
+
+
+
+#define DHTPIN D6     // what pin we're connected to
+#define DHTTYPE DHT22	
+
+//initiate functions
+int C2F(float C);
+
+DHT dht(DHTPIN, DHTTYPE);
+TCPClient client;
+
+int sendDelay = 600000;
+
+unsigned int myChannelNumber = 362634;
+const char * myWriteAPIKey = "4TNTXBSVVNRKBPXZ";
+
+void setup() {
+	dht.begin();
+	ThingSpeak.begin(client);
+	Particle.publish("PowerON","dht22-ts",60,PRIVATE);
+}
+
+void loop() {
+
+	int h = dht.getHumidity();
+	int t = dht.getTempCelcius();
+	
+    ThingSpeak.setField(4,C2F(t));
+    ThingSpeak.setField(6,t);
+    ThingSpeak.setField(5,h);
+    Particle.publish("Phcullen_DHT_Temprature_Post",String(C2F(t)));
+   // Particle.publish("Phcullen_DHT_Humidity_Post",String(h));
+
+    // Write the fields that you've set all at once.
+    ThingSpeak.writeFields(myChannelNumber, myWriteAPIKey);  
+    delay(sendDelay);	
+}
+
+int C2F(float C){
+    int F=C*1.8 + 32;
+    return F;
+}

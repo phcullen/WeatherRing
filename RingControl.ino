@@ -30,8 +30,14 @@ long intervalWUPull = 60000; //Interval for pulling weather data from WU millise
 long intervalDataPost = 60000; //Interval for pulling weather data from WU milliseconds
 
 //initilize functions
+//void WUretreve();
+//void WuHandler(const char *event, const char *data);
 //uint32_t GetCondition(String current);
 //uint32_t GetTemprature(int temp);
+//void Cycle(uint32_t conditionTemp, uint32_t colorTemp,int wSpeed);
+//int WindSpeed(int windSpeed);
+//void PostData(int temp,int wSpeed);
+
 
 ////////////Color definitions///////////////////////////////////////////////////////////////////////////////////////
 uint32_t PURPLE=strip.Color(180,3,180);
@@ -50,6 +56,9 @@ int windSpeed = NULL;//Winf speed MPH
 String humidity ="";
 String weatherState = "";
 
+int TTTTT=99;
+int Humidity=NULL;
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void setup() {
     
@@ -60,6 +69,9 @@ void setup() {
   
     // Subscribe to the integration response event
     Particle.subscribe(System.deviceID() + "_test1", WuHandler, MY_DEVICES);
+    
+    Particle.subscribe("Phcullen_DHT_Humidity_Post", HHandler);
+    Particle.subscribe("Phcullen_DHT_Temprature_Post", THandler);
     //start ThinkSpeak client
     ThingSpeak.begin(client);
 }
@@ -68,8 +80,10 @@ void loop() {
    
    
     WUretreve();//retreve WU data
-    PostData(currentTemp,windSpeed);//Post data to ThingSpeak
-    Cycle(GetCondition(weatherState),GetTemprature(currentTemp),WindSpeed(windSpeed));//run animation
+    PostData( ,windSpeed);//Post data to ThingSpeak
+    Cycle(GetCondition(weatherState),GetTemprature(TTTTT),WindSpeed(windSpeed));//run animation
+    //Particle.publish("Test_Temprature_Postx",String(TTTTT));
+    //Particle.publish("Test_Temprature_Postxx",String(Humidity));
     
    
 }
@@ -109,12 +123,26 @@ void WuHandler(const char *event, const char *data) {
     
 }
 
+void THandler(const char *event, const char *data){
+    TTTTT = atoi(data);
+    //Humidity = atoi(strtok (NULL, "~"));
+    //Particle.publish("Test_Temprature_Post",data);
+    
+}
+
+void HHandler(const char *event, const char *data){
+    Humidity = atoi(String(data));
+    //Particle.publish("Test_Humidity_Post",data);
+  
+}
+
 //recieve current condition from WU and return a color for tracking LED////////////////////////////////////////////////////
 uint32_t GetCondition(String current){
     
     const int x=6;
     const int y=50;
     bool done=false;
+        
         
     String conditions[x][y]={
         {"RAIN","Light Drizzle","Drizzle","Heavy Drizzle","Light Rain","Rain","Heavy Rain","Light Mist","Mist","Heavy Mist","Light Rain Showers","Rain Showers","Heavy Rain Showers","Light Thunderstorm","Thunderstorm","Heavy Thunderstorm","Light Thunderstorms and Rain","Thunderstorms and Rain","Heavy Thunderstorms and Rain","Light Rain Mist","Rain Mist","Heavy Rain Mist","Light Freezing Drizzle","Freezing Drizzle","Heavy Freezing Drizzle","Light Freezing Rain","Freezing Rain","Heavy Freezing Rain","Squalls","Light Spray","Spray","Heavy Spray"},
@@ -244,6 +272,8 @@ void PostData(int temp,int wSpeed){
         //Particle.publish("tempraturePost", String(temp), PRIVATE);
         ThingSpeak.setField(1,temp);
         ThingSpeak.setField(2,wSpeed);
+        ThingSpeak.setField(3,TTTTT);
+        //ThingSpeak.setField(7,Humidity);
         //ThingSpeak.setField(3,humidity);
         ThingSpeak.writeFields(myChannelNumber, myWriteAPIKey);
         previousMillisWU = currentMillis;

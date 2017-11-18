@@ -7,23 +7,23 @@
 
 
 #define DHTPIN D6     // what pin we're connected to
-#define DHTTYPE DHT22	
+#define DHTTYPE DHT22 //name of Device	
 
 //initiate functions
 int C2F(float C);
 
-DHT dht(DHTPIN, DHTTYPE);
-TCPClient client;
+DHT dht(DHTPIN, DHTTYPE);//initiate DHT
+TCPClient client;//initiate thingspeak
 
-int sendDelay = 600000;
+int sendDelay = 600000;//set delay timer in milliseconds
 
-unsigned int myChannelNumber = 362634;
-const char * myWriteAPIKey = "4TNTXBSVVNRKBPXZ";
+unsigned int myChannelNumber = xxxxxx;//ChannelID
+const char * myWriteAPIKey = "Your ThingSpeak api key";// APIKey
 
 void setup() {
-	dht.begin();
-	ThingSpeak.begin(client);
-	Particle.publish("PowerON","dht22-ts",60,PRIVATE);
+	dht.begin();//start temprature and humidity sensor
+	ThingSpeak.begin(client);//start connection with thingspeak
+	Particle.publish("PowerON","dht22-ts",60,PRIVATE);//cinfirm connectin in particle consol
 }
 
 void loop() {
@@ -31,17 +31,18 @@ void loop() {
 	int h = dht.getHumidity();
 	int t = dht.getTempCelcius();
 	
-    ThingSpeak.setField(4,C2F(t));
-    ThingSpeak.setField(6,t);
-    ThingSpeak.setField(5,h);
-    Particle.publish("Phcullen_DHT_Temprature_Post",String(C2F(t)));
-   // Particle.publish("Phcullen_DHT_Humidity_Post",String(h));
+    ThingSpeak.setField(4,C2F(t));//Post temprature in thingspeak feild 4 F
+    ThingSpeak.setField(6,t);//Post temprature in thingspeak feild 6 C
+    ThingSpeak.setField(5,h);//Post humidity in thingspeak feild 5
+    Particle.publish("Phcullen_DHT_Temprature_Post",String(C2F(t)));//post temprature data to Particle to br eead by other devices and seen in console
+   // Particle.publish("Phcullen_DHT_Humidity_Post",String(h));//post Humidity data to Particle to br eead by other devices and seen in console
 
     // Write the fields that you've set all at once.
     ThingSpeak.writeFields(myChannelNumber, myWriteAPIKey);  
     delay(sendDelay);	
 }
 
+//Celcious to farenhight convirter
 int C2F(float C){
     int F=C*1.8 + 32;
     return F;

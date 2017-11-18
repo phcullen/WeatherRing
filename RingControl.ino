@@ -19,8 +19,8 @@ Adafruit_NeoPixel strip = Adafruit_NeoPixel(PIXEL_COUNT, PIXEL_PIN, PIXEL_TYPE);
 
 ///////establish connection with ThingSpeak////////////////////////////////////////////////////////
 TCPClient client;
-unsigned int myChannelNumber = 362634; //ChannelID
-const char * myWriteAPIKey = "4TNTXBSVVNRKBPXZ"; // APIKey
+unsigned int myChannelNumber = xxxxxx; //ChannelID
+const char * myWriteAPIKey = "Your ThingSpeak api key"; // APIKey
 
 
 
